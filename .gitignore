@@ -1,0 +1,23 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Pytest
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Benchmark temporary files
+*.tmp
