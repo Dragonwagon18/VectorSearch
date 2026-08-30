@@ -1,4 +1,3 @@
-````markdown
 # VectorSearch
 
 A vector search engine built from scratch to understand the **algorithms, mathematics, data structures, memory behavior, and systems trade-offs** behind modern vector databases and approximate nearest-neighbor (ANN) search engines.
@@ -21,7 +20,7 @@ Embedding Model
       │
       ▼
 ┌─────────────────┐
-│  Vector Search  │
+│  Vector Search   │
 └─────────────────┘
       │
       ▼
@@ -29,7 +28,6 @@ Top-k nearest vectors
       │
       ▼
 RAG / Recommendation / Retrieval
-````
 
 This project progressively builds that system from the simplest possible implementation toward a production-oriented approximate nearest-neighbor engine.
 
