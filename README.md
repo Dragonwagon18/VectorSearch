@@ -20,7 +20,7 @@ Embedding Model
       │
       ▼
 ┌─────────────────┐
-│  Vector Search   │
+│  Vector Search  │
 └─────────────────┘
       │
       ▼
