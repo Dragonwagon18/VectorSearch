@@ -1,0 +1,346 @@
+[
+  {
+    "layout": "contiguous",
+    "strides": [
+      512,
+      4
+    ],
+    "memory_mb": 48.828125,
+    "c_contiguous": true,
+    "f_contiguous": false,
+    "median_p50_ms": 15.279770494089462,
+    "median_p95_ms": 19.097593245533062,
+    "median_p99_ms": 42.021024999121344,
+    "median_qps": 60.095023408912546,
+    "runs": [
+      {
+        "layout": "contiguous",
+        "c_contiguous": true,
+        "f_contiguous": false,
+        "strides": [
+          512,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.406625003379304,
+        "p95_ms": 20.453145501960535,
+        "p99_ms": 38.785147960879776,
+        "qps": 60.095023408912546
+      },
+      {
+        "layout": "contiguous",
+        "c_contiguous": true,
+        "f_contiguous": false,
+        "strides": [
+          512,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.447999998286832,
+        "p95_ms": 23.580104007123737,
+        "p99_ms": 45.90323939773948,
+        "qps": 57.37231750865842
+      },
+      {
+        "layout": "contiguous",
+        "c_contiguous": true,
+        "f_contiguous": false,
+        "strides": [
+          512,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.156375004153233,
+        "p95_ms": 19.097593245533062,
+        "p99_ms": 49.731827201321636,
+        "qps": 59.38911277082925
+      },
+      {
+        "layout": "contiguous",
+        "c_contiguous": true,
+        "f_contiguous": false,
+        "strides": [
+          512,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.279770494089462,
+        "p95_ms": 18.87048924982082,
+        "p99_ms": 28.85987866247884,
+        "qps": 61.27846317897578
+      },
+      {
+        "layout": "contiguous",
+        "c_contiguous": true,
+        "f_contiguous": false,
+        "strides": [
+          512,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.153749998717103,
+        "p95_ms": 17.579250255948864,
+        "p99_ms": 42.021024999121344,
+        "qps": 62.44883978269155
+      }
+    ]
+  },
+  {
+    "layout": "stride_x2",
+    "strides": [
+      1024,
+      4
+    ],
+    "memory_mb": 48.828125,
+    "c_contiguous": false,
+    "f_contiguous": false,
+    "median_p50_ms": 14.89097900048364,
+    "median_p95_ms": 15.645177500118734,
+    "median_p99_ms": 16.77381654590135,
+    "median_qps": 66.7219352086425,
+    "runs": [
+      {
+        "layout": "stride_x2",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          1024,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 14.890311998897232,
+        "p95_ms": 15.645177500118734,
+        "p99_ms": 16.15183764588437,
+        "qps": 66.7219352086425
+      },
+      {
+        "layout": "stride_x2",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          1024,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 14.89097900048364,
+        "p95_ms": 15.495124498556834,
+        "p99_ms": 16.77381654590135,
+        "qps": 66.85658629341643
+      },
+      {
+        "layout": "stride_x2",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          1024,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 14.912000500771683,
+        "p95_ms": 16.566843743930804,
+        "p99_ms": 20.81638285671938,
+        "qps": 64.65031079792466
+      },
+      {
+        "layout": "stride_x2",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          1024,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 14.867958496324718,
+        "p95_ms": 15.78184349637013,
+        "p99_ms": 17.60861005095648,
+        "qps": 66.58436906488058
+      },
+      {
+        "layout": "stride_x2",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          1024,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 14.90712499798974,
+        "p95_ms": 15.273645254637813,
+        "p99_ms": 16.10938139783684,
+        "qps": 66.83122978241114
+      }
+    ]
+  },
+  {
+    "layout": "stride_x4",
+    "strides": [
+      2048,
+      4
+    ],
+    "memory_mb": 48.828125,
+    "c_contiguous": false,
+    "f_contiguous": false,
+    "median_p50_ms": 15.564417000859976,
+    "median_p95_ms": 21.167989500099793,
+    "median_p99_ms": 25.227456249558575,
+    "median_qps": 60.21188288908151,
+    "runs": [
+      {
+        "layout": "stride_x4",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          2048,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 14.8460834971047,
+        "p95_ms": 16.760614755185088,
+        "p99_ms": 20.127933156618358,
+        "qps": 65.81590971943945
+      },
+      {
+        "layout": "stride_x4",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          2048,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.564417000859976,
+        "p95_ms": 28.027457745338324,
+        "p99_ms": 57.434998103417385,
+        "qps": 54.1639124764932
+      },
+      {
+        "layout": "stride_x4",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          2048,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.673228997911792,
+        "p95_ms": 21.167989500099793,
+        "p99_ms": 25.227456249558575,
+        "qps": 60.21188288908151
+      },
+      {
+        "layout": "stride_x4",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          2048,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.772645507240668,
+        "p95_ms": 35.30598974975874,
+        "p99_ms": 54.14923315038322,
+        "qps": 53.677227785957626
+      },
+      {
+        "layout": "stride_x4",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          2048,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.132249995076563,
+        "p95_ms": 17.16594800745952,
+        "p99_ms": 19.456801902560972,
+        "qps": 64.49344940909444
+      }
+    ]
+  },
+  {
+    "layout": "stride_x8",
+    "strides": [
+      4096,
+      4
+    ],
+    "memory_mb": 48.828125,
+    "c_contiguous": false,
+    "f_contiguous": false,
+    "median_p50_ms": 15.025542001239955,
+    "median_p95_ms": 16.80281299559283,
+    "median_p99_ms": 18.54510160046629,
+    "median_qps": 65.85412209977025,
+    "runs": [
+      {
+        "layout": "stride_x8",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          4096,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.109458501683548,
+        "p95_ms": 18.444447498040972,
+        "p99_ms": 28.21387239164321,
+        "qps": 63.437480685182855
+      },
+      {
+        "layout": "stride_x8",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          4096,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 14.971291500842199,
+        "p95_ms": 16.80281299559283,
+        "p99_ms": 18.54510160046629,
+        "qps": 65.87042432586088
+      },
+      {
+        "layout": "stride_x8",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          4096,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.025542001239955,
+        "p95_ms": 17.92761425167555,
+        "p99_ms": 22.635720801190466,
+        "qps": 64.53377295028123
+      },
+      {
+        "layout": "stride_x8",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          4096,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 15.058208497066516,
+        "p95_ms": 15.83453124112566,
+        "p99_ms": 17.09778315707808,
+        "qps": 65.85412209977025
+      },
+      {
+        "layout": "stride_x8",
+        "c_contiguous": false,
+        "f_contiguous": false,
+        "strides": [
+          4096,
+          4
+        ],
+        "memory_mb": 48.828125,
+        "p50_ms": 14.911916499841027,
+        "p95_ms": 15.698687246185727,
+        "p99_ms": 16.690239109448154,
+        "qps": 66.61360636040982
+      }
+    ]
+  }
+]
