@@ -191,3 +191,25 @@ def test_numpy_matches_loop_on_multiple_random_trials():
                 expected.distances,
                 rtol=1e-5,
             )
+
+def test_ties_at_k_boundary_are_deterministic_by_id():
+    vectors = np.array(
+        [
+            [1.0],
+            [-1.0],
+            [1.0],
+            [-1.0],
+            [2.0],
+        ],
+        dtype=np.float32,
+    )
+
+    ids = np.array([50, 10, 30, 20, 99])
+
+    index = ExactNumPyIndex(vectors, ids)
+
+    result = index.search([0.0], k=2)
+
+    # Four vectors are tied at distance 1.
+    # The two smallest IDs must win.
+    assert result.ids.tolist() == [10, 20]

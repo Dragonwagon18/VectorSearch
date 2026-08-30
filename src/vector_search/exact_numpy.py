@@ -62,18 +62,19 @@ class ExactNumPyIndex:
         distances = np.einsum("ij,ij->i", delta, delta)
 
         # Find the k smallest distances without sorting everything.
-        candidates = np.argpartition(distances, kth=k - 1)[:k]
-
-        # Fully sort only the k selected candidates.
-        # IDs provide deterministic ordering when distances tie.
+        # Deterministic ordering by (distance, ID).
+        #
+        # We currently sort all vectors because argpartition alone
+        # cannot guarantee deterministic ID-based tie-breaking at the
+        # kth boundary.
         order = np.lexsort(
-            (
-                self.ids[candidates],
-                distances[candidates],
-            )
-        )
+    (
+        self.ids,
+        distances,
+    )
+)
 
-        rows = candidates[order]
+        rows = order[:k]
 
         return SearchResult(
             ids=self.ids[rows],
