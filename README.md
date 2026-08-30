@@ -1772,6 +1772,3 @@ The goal is to progressively move from:
 to:
 
 > **"I understand why a production vector search engine is designed this way."**
-
-```
-```
