@@ -28,7 +28,7 @@ Top-k nearest vectors
       │
       ▼
 RAG / Recommendation / Retrieval
-```
+````
 
 This project progressively builds that system from the simplest possible implementation toward a production-oriented approximate nearest-neighbor engine.
 
@@ -45,9 +45,6 @@ Top-k Optimization
      │
      ▼
 Memory / Cache Optimization
-     │
-     ▼
-Dimensionality / Batch Experiments
      │
      ▼
 Benchmarking
@@ -101,16 +98,16 @@ The project should make the answer to questions like these intuitive:
 * [x] Exact-search benchmark
 * [x] Latency measurements
 * [x] Benchmark result serialization
-* [x] Python-loop vs NumPy benchmark
 * [x] Exact-search latency plot
+* [x] Python loop vs NumPy benchmark plot
 
-## Current test status
+## Current Test Status
 
 ```text
 27 tests passed
 ```
 
-Run the complete test suite with:
+Run the complete test suite:
 
 ```bash
 python -m pytest -v
@@ -150,6 +147,7 @@ vector-search/
 │       └── exact.json
 │
 └── plots/
+    ├── exact_latency.png
     └── Exact search latency- Python loop vs NumPy.png
 ```
 
@@ -174,7 +172,7 @@ we calculate:
 d(q, x) = Σ(qᵢ - xᵢ)²
 ```
 
-We use **squared** L2 distance because the square root is unnecessary when only ranking vectors by distance.
+We use **squared L2 distance** because the square root is unnecessary when only ranking vectors by distance.
 
 If:
 
@@ -356,13 +354,13 @@ Implemented in:
 src/vector_search/exact_numpy.py
 ```
 
-The core computation is conceptually:
+The core computation is:
 
 ```python
 distances = np.sum((vectors - query) ** 2, axis=1)
 ```
 
-Instead of executing a Python loop over every vector, NumPy performs the computation over the complete matrix using optimized native numerical operations.
+Instead of executing a Python loop over every vector, NumPy performs the computation over the complete matrix using optimized native operations.
 
 The important point is that **the algorithm has not changed**.
 
@@ -404,6 +402,7 @@ Every major component is developed test-first.
 * NaN vectors
 * infinite vectors
 * NaN queries
+* infinite queries
 
 ## NumPy Exact Search
 
@@ -415,9 +414,9 @@ Additional tests verify:
 * duplicate IDs
 * NumPy and loop implementations produce identical nearest-neighbor results
 * multiple randomized trials produce identical nearest-neighbor results
-* deterministic tie-breaking at the `k` boundary
+* deterministic tie-breaking when ties occur at the `k` boundary
 
-Current status:
+## Current Test Status
 
 ```text
 27 passed
@@ -427,17 +426,7 @@ Current status:
 
 # 5. Benchmarking
 
-We now have a reproducible benchmark comparing two **exact nearest-neighbor implementations**:
-
-```text
-Exact Python Loop
-        │
-        │ same algorithm
-        ▼
-Exact NumPy Vectorization
-```
-
-The purpose of this experiment is to isolate the performance impact of **vectorization** without changing the underlying search algorithm.
+We now have a reproducible benchmark for exact vector search.
 
 The benchmark measures:
 
@@ -446,15 +435,15 @@ The benchmark measures:
 * p95 latency
 * p99 latency
 * queries per second
-* index build time
+* build time
+* vector memory footprint
 
-## Benchmark Configuration
+Current experiment:
 
 ```text
 dimension = 128
 k = 10
 queries = 200
-dtype = float32
 ```
 
 Dataset sizes:
@@ -465,50 +454,108 @@ N = 10,000
 N = 100,000
 ```
 
-## Current Results
+---
 
-|    N | Implementation |          p50 |          p95 |          p99 |       QPS |        Build |
-| ---: | -------------- | -----------: | -----------: | -----------: | --------: | -----------: |
-|   1K | Python Loop    |      2.28 ms |      2.34 ms |      2.38 ms |       437 |      7.77 ms |
-|   1K | NumPy          |  **0.13 ms** |  **0.14 ms** |  **0.15 ms** | **7,397** |  **0.07 ms** |
-|  10K | Python Loop    |     24.55 ms |     26.48 ms |     77.08 ms |      37.9 |    486.18 ms |
-|  10K | NumPy          |  **1.88 ms** |  **1.93 ms** |  **2.03 ms** |   **528** |  **0.34 ms** |
-| 100K | Python Loop    |    259.69 ms |    273.66 ms |    325.71 ms |      3.81 | 45,469.77 ms |
-| 100K | NumPy          | **23.24 ms** | **23.86 ms** | **24.90 ms** |  **42.9** | **29.66 ms** |
+## Python Loop vs NumPy
 
-## Vectorization Speedup
+The first benchmark compares the straightforward Python implementation against the vectorized NumPy implementation.
 
-The NumPy implementation provides a substantial improvement while returning the **exact same nearest neighbors**.
+The important observation is that **both implementations perform exact nearest-neighbor search**.
 
-|    N | QPS Speedup | p50 Speedup |
-| ---: | ----------: | ----------: |
-|   1K |   **16.9×** |   **17.2×** |
-|  10K |   **13.9×** |   **13.0×** |
-| 100K |   **11.3×** |   **11.2×** |
-
-The important observation is:
-
-> **The algorithm did not change. The implementation changed.**
-
-Both implementations still examine every vector and therefore have the same fundamental complexity.
+The difference is primarily in how the computation is executed:
 
 ```text
 Python Loop
-O(ND)
+    │
+    ├── Python-level iteration
+    ├── Python-level arithmetic
+    └── repeated function/object overhead
 
-     │
-     │ vectorization
-     ▼
+            VS
 
 NumPy
-O(ND)
+    │
+    ├── vectorized operations
+    ├── native compiled code
+    └── optimized numerical kernels
 ```
 
-NumPy moves the computational work from the Python interpreter into optimized native numerical operations, dramatically reducing per-vector interpreter overhead.
+The benchmark produced the following results on the development machine:
 
-The benchmark therefore gives us our first concrete systems lesson:
+|    N |  Loop p50 | NumPy p50 | Loop QPS | NumPy QPS | QPS Speedup |
+| ---: | --------: | --------: | -------: | --------: | ----------: |
+|   1K |   2.28 ms |  0.133 ms |      437 |     7,397 |       16.9× |
+|  10K |  24.55 ms |   1.88 ms |     37.9 |       528 |       13.9× |
+| 100K | 259.69 ms |  23.24 ms |     3.81 |      42.9 |       11.3× |
 
-> **Algorithmic complexity alone does not determine performance. Implementation and hardware utilization matter.**
+The NumPy implementation is therefore roughly **11–17× faster** in this experiment while preserving exact results.
+
+The speedup decreases somewhat as the dataset grows because the workload becomes increasingly dominated by memory movement and memory hierarchy effects rather than Python interpreter overhead.
+
+### Benchmark Plot
+
+![Exact search latency: Python loop vs NumPy](plots/Exact%20search%20latency-%20Python%20loop%20vs%20NumPy.png)
+
+---
+
+# Exact NumPy Search: Latency vs Dataset Size
+
+The vectorized implementation demonstrates the central limitation of brute-force search:
+
+> Every query examines the entire dataset.
+
+Conceptually:
+
+```text
+N increases
+    │
+    ▼
+More vectors examined
+    │
+    ▼
+More distance computations
+    │
+    ▼
+Higher query latency
+```
+
+For the NumPy implementation:
+
+```text
+N = 1K
+    ↓
+very low latency
+
+N = 10K
+    ↓
+higher latency
+
+N = 100K
+    ↓
+significantly higher latency
+```
+
+The benchmark demonstrates that exact search scales approximately linearly with the number of vectors.
+
+### Benchmark Plot
+
+![Exact NumPy Search: Latency vs Dataset Size](plots/exact_latency.png)
+
+This plot provides the empirical baseline that future optimizations must beat.
+
+---
+
+# Benchmark Environment
+
+The benchmark was run on:
+
+```text
+Python:     3.13.5
+Platform:   macOS 15.2 arm64
+CPU cores:  8 logical cores
+RAM:        8 GB
+dtype:      float32
+```
 
 Results are stored in:
 
@@ -516,80 +563,51 @@ Results are stored in:
 benchmarks/results/exact.json
 ```
 
+Run the benchmark with:
+
+```bash
+PYTHONPATH=src python benchmarks/compare_exact.py
+```
+
 ---
 
-# Exact Search Latency
+# Vector Memory Footprint
 
-The benchmark demonstrates the performance difference between a straightforward Python implementation and a vectorized NumPy implementation.
-
-![Exact Search Latency — Python Loop vs NumPy](plots/Exact%20search%20latency-%20Python%20loop%20vs%20NumPy.png)
-
-The Python-loop implementation becomes increasingly expensive as the dataset grows.
-
-At `N = 100K`:
+For `float32`, every dimension requires:
 
 ```text
-Python Loop
-p50 ≈ 259.7 ms
-QPS ≈ 3.8
-
-        vs
-
-NumPy
-p50 ≈ 23.2 ms
-QPS ≈ 42.9
+4 bytes
 ```
 
-The NumPy implementation is approximately **11× faster** at this dataset size.
-
-Conceptually:
+Therefore:
 
 ```text
-Same algorithm
-      │
-      ├───────────────┐
-      │               │
-      ▼               ▼
-Python Loop         NumPy
-      │               │
-Python interpreter   Native vectorized operations
-      │               │
-      ▼               ▼
-Higher overhead      Lower overhead
-      │               │
-      └───────┬───────┘
-              ▼
-       Exact top-k search
+memory = N × D × 4 bytes
 ```
 
-This is our first measured demonstration that:
-
-> **A performance optimization does not necessarily require changing the algorithm.**
-
-However, NumPy does **not** change the fundamental scaling behavior.
-
-Every query still examines all `N` vectors:
+For `D = 128`:
 
 ```text
-N increases
-    │
-    ▼
-More distance computations
-    │
-    ▼
-More memory accessed
-    │
-    ▼
-Higher latency
+1K vectors
+    = 1,000 × 128 × 4
+    ≈ 0.5 MB
+
+10K vectors
+    ≈ 5 MB
+
+100K vectors
+    ≈ 51.2 MB
 ```
 
-This motivates the next experiments: reducing unnecessary computation, understanding memory behavior, and eventually replacing exhaustive search with ANN algorithms such as HNSW.
+This memory footprint becomes important when studying cache behavior.
+
+The dataset may fit inside some levels of the CPU cache at small sizes, while larger datasets increasingly require accesses to higher-level cache or main memory.
 
 ---
 
 # 6. Top-k Selection
 
-The current exact implementation uses partial selection rather than fully sorting all `N` distances.
+The current exact implementation does more work than necessary when `k` is small.
 
 If:
 
@@ -602,36 +620,20 @@ we only need the 10 closest vectors.
 
 Fully sorting one million distances is unnecessary.
 
-The implementation therefore uses:
+We will investigate:
+
+```text
+Full sorting
+
+     vs
+
+Partial selection
+```
+
+For example:
 
 ```python
 np.argpartition(...)
-```
-
-to identify the `k` best candidates without completely sorting the entire distance array.
-
-The selected candidates are then sorted to guarantee deterministic final ordering by:
-
-```text
-(distance, item_id)
-```
-
-Conceptually:
-
-```text
-N distances
-     │
-     ▼
-np.argpartition
-     │
-     ▼
-k candidates
-     │
-     ▼
-small final sort
-     │
-     ▼
-ordered top-k
 ```
 
 This introduces an important systems principle:
@@ -639,6 +641,18 @@ This introduces an important systems principle:
 > **Do not perform work that the query does not require.**
 
 The goal is to preserve exact results while reducing the cost of selecting the nearest `k` vectors.
+
+The experiment will compare:
+
+```text
+np.argsort
+
+vs
+
+np.argpartition + final sort
+```
+
+while verifying that both produce identical results.
 
 ---
 
@@ -660,29 +674,41 @@ We will investigate:
 
 The goal is to understand why two mathematically identical implementations can have very different latency.
 
-An important experiment will be determining what happens as the dataset grows through and beyond different levels of the CPU cache hierarchy.
+An important experiment will be determining what happens as the dataset grows through different levels of the CPU memory hierarchy.
 
 Conceptually:
 
 ```text
-Vectorized computation
-        │
-        ▼
-CPU needs vector data
-        │
-        ▼
-Where is the data?
-        │
-        ├── CPU registers
-        ├── L1 cache
-        ├── L2 cache
-        ├── L3 / system cache
-        └── DRAM
+Small Dataset
+     │
+     ▼
+CPU Cache
+     │
+     ▼
+Low memory-access latency
+
+        ↓
+
+Larger Dataset
+     │
+     ▼
+Higher cache levels
+     │
+     ▼
+Higher latency
+
+        ↓
+
+Very Large Dataset
+     │
+     ▼
+Main Memory
+     │
+     ▼
+Memory bandwidth becomes important
 ```
 
-As the working set grows, more of the dataset must be served from slower levels of the memory hierarchy.
-
-This makes cache behavior especially important for vector search because exact search repeatedly scans the vector matrix.
+We will measure this rather than assume it.
 
 ---
 
@@ -715,23 +741,13 @@ Expected questions include:
 * Does batching improve hardware utilization?
 * When do allocations become significant?
 * How does float32 compare with float64?
-* Does higher dimensionality change the relative benefit of vectorization?
-
-The experiments will help separate:
-
-```text
-Compute cost
-     vs
-Memory movement
-     vs
-Python / allocation overhead
-```
+* Does increasing dimensionality change the relative benefit of vectorization?
 
 ---
 
 # 9. HNSW
 
-After understanding exact search and its systems bottlenecks, we will implement:
+After understanding exact search, we will implement:
 
 ```text
 src/vector_search/hnsw.py
@@ -739,7 +755,7 @@ src/vector_search/hnsw.py
 
 from scratch.
 
-HNSW:
+HNSW stands for:
 
 **Hierarchical Navigable Small World**
 
@@ -747,9 +763,7 @@ Instead of comparing the query against every vector:
 
 ```text
 Query
-
   │
-
   ├── vector 1
   ├── vector 2
   ├── vector 3
@@ -763,9 +777,7 @@ we construct a navigable graph:
         Layer 2
 
           A
-
          / \
-
         B   C
 
         Layer 1
@@ -808,8 +820,6 @@ affect:
 * latency
 * memory
 * build time
-
-The exact search implementation will remain our ground-truth oracle.
 
 ---
 
@@ -884,20 +894,7 @@ This introduces:
 * compatibility
 * memory mapping
 
-Persistence will also allow us to investigate the relationship between:
-
-```text
-Disk
- │
- ▼
-Memory mapping
- │
- ▼
-Page cache
- │
- ▼
-Search latency
-```
+Memory mapping will be particularly interesting because it connects persistence directly with the memory/cache experiments.
 
 ---
 
@@ -921,7 +918,7 @@ Eventually we may explore:
 * observability
 * benchmark automation
 
-These features will move the project from an educational implementation toward a small production-oriented vector indexing system.
+These features will be introduced only after understanding the underlying algorithms and systems behavior.
 
 ---
 
@@ -931,7 +928,6 @@ Once our implementations are mature enough, we will compare against established 
 
 ```text
 FAISS
-
 HNSWlib
 ```
 
@@ -941,31 +937,15 @@ The purpose is to understand:
 
 ```text
 Our implementation
-
        │
-
        ▼
-
 What optimization are we missing?
-
        │
-
        ▼
-
 What does a mature implementation do differently?
 ```
 
 External libraries therefore serve as reference points rather than shortcuts.
-
-The comparison should help answer questions such as:
-
-* How much faster are optimized implementations?
-* Which optimizations matter most?
-* How do they organize memory?
-* How do they exploit SIMD?
-* How do they implement graph traversal?
-* How much memory does the index require?
-* What engineering complexity is hidden behind a simple search API?
 
 ---
 
@@ -1006,8 +986,6 @@ For every major optimization, we want to answer:
 5. Did correctness remain unchanged?
 6. What new bottleneck appeared?
 
-This makes every optimization an experiment rather than a guess.
-
 ---
 
 # Guiding Principle
@@ -1031,10 +1009,6 @@ Systems engineering
 We intentionally start with the simplest possible implementation.
 
 A slow but obviously correct implementation is extremely valuable because it gives us a **ground-truth reference implementation** against which every future optimization can be tested.
-
-The objective is not merely to implement vector search.
-
-The objective is to understand the engineering decisions that make vector search fast.
 
 ---
 
@@ -1078,8 +1052,8 @@ Implemented:
 ✓ Reproducible benchmark
 ✓ Latency measurements
 ✓ Benchmark JSON output
-✓ Python-loop vs NumPy comparison
-✓ Latency visualization
+✓ Exact-search latency visualization
+✓ Python loop vs NumPy visualization
 ```
 
 Current test status:
@@ -1089,26 +1063,6 @@ Current test status:
 ```
 
 The key result from this milestone is that we now have a **measured exact-search baseline**.
-
-At `N = 100K`, vectorization reduced p50 query latency from approximately:
-
-```text
-259.7 ms
-```
-
-to:
-
-```text
-23.2 ms
-```
-
-while preserving exact results.
-
-That is approximately:
-
-```text
-11.2× p50 speedup
-```
 
 ---
 
@@ -1124,46 +1078,37 @@ First:
 Full sorting
      │
      ▼
-Partial selection
-     │
-     ▼
 np.argpartition
 ```
 
-Then:
+Then we will investigate:
 
 ```text
 Dimension
-
    │
    ├── 64
    ├── 128
    ├── 384
    ├── 768
    └── 1536
-```
 
-Dataset size:
-
-```text
+Dataset size
    │
    ├── 1K
    ├── 10K
    ├── 100K
    └── 1M
-```
 
-Batch size:
-
-```text
+Batch size
    │
    ▼
 Throughput
 ```
 
-Memory:
+Then:
 
 ```text
+Memory
    │
    ▼
 Cache behavior
@@ -1172,22 +1117,20 @@ Cache behavior
 Memory bandwidth
 ```
 
-The immediate next experiment is therefore:
+The memory/cache experiment will investigate how the working set interacts with the CPU memory hierarchy.
+
+We will measure:
 
 ```text
-Exact Search
-     │
-     ▼
-Memory / Cache Experiment
-     │
-     ▼
-Understand working-set size
-     │
-     ▼
-Measure cache effects
-     │
-     ▼
-Optimize memory behavior
+dataset size
+      ↓
+working-set size
+      ↓
+cache behavior
+      ↓
+latency
+      ↓
+throughput
 ```
 
 Only after understanding these exact-search bottlenecks will we move to HNSW.
@@ -1199,3 +1142,6 @@ The goal is to progressively move from:
 to:
 
 > **"I understand why a production vector search engine is designed this way."**
+
+```
+```
