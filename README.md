@@ -2,7 +2,7 @@
 
 A vector search engine built from scratch to understand the **algorithms, mathematics, data structures, memory behavior, and systems trade-offs** behind modern vector databases and approximate nearest-neighbor (ANN) search engines.
 
-The goal is not to build another wrapper around FAISS, HNSWLib, or a vector database.
+The goal is not to build another wrapper around FAISS, HNSWlib, or a vector database.
 
 The goal is to understand and implement the machinery ourselves.
 
@@ -28,6 +28,7 @@ Top-k nearest vectors
       │
       ▼
 RAG / Recommendation / Retrieval
+```
 
 This project progressively builds that system from the simplest possible implementation toward a production-oriented approximate nearest-neighbor engine.
 
@@ -64,7 +65,7 @@ Persistence
 Production-oriented Vector Index
 ```
 
-The project should make the answer to questions like these intuitive:
+The project should make questions like these intuitive:
 
 * Why is brute-force vector search slow?
 * Why does NumPy outperform a Python loop?
@@ -419,37 +420,37 @@ Every major component is developed test-first.
 
 ## Metrics
 
-* known squared-L2 result
-* normalized vectors have unit norm
+* Known squared-L2 result
+* Normalized vectors have unit norm
 
 ## Exact Search
 
-* correct nearest neighbors
-* sorted results
-* deterministic tie-breaking
-* wrong vector dimension
-* duplicate IDs
-* empty index
-* invalid `k`
+* Correct nearest neighbors
+* Sorted results
+* Deterministic tie-breaking
+* Wrong vector dimension
+* Duplicate IDs
+* Empty index
+* Invalid `k`
 * `k=1`
 * `k=N`
-* wrong query dimension
+* Wrong query dimension
 * NaN vectors
-* infinite vectors
+* Infinite vectors
 * NaN queries
-* infinite queries
+* Infinite queries
 
 ## NumPy Exact Search
 
 Additional tests verify:
 
-* vector storage
+* Vector storage
 * ID handling
-* wrong ID count
-* duplicate IDs
+* Wrong ID count
+* Duplicate IDs
 * NumPy and loop implementations produce identical results
-* multiple randomized trials produce identical nearest-neighbor results
-* deterministic tie-breaking when ties occur at the `k` boundary
+* Multiple randomized trials produce identical nearest-neighbor results
+* Deterministic tie-breaking when ties occur at the `k` boundary
 
 ## Current Test Status
 
@@ -465,13 +466,13 @@ We now have reproducible benchmarks for exact vector search.
 
 The benchmarks measure:
 
-* query latency
+* Query latency
 * p50 latency
 * p95 latency
 * p99 latency
-* queries per second
-* build time
-* vector memory footprint
+* Queries per second
+* Build time
+* Vector memory footprint
 
 ---
 
@@ -479,7 +480,7 @@ The benchmarks measure:
 
 The first benchmark compares the straightforward Python implementation against the vectorized NumPy implementation.
 
-The important observation is that **both implementations perform exact nearest-neighbor search**.
+Both implementations perform **exact nearest-neighbor search**.
 
 The difference is primarily in how the computation is executed:
 
@@ -501,7 +502,7 @@ NumPy
     └── optimized numerical kernels
 ```
 
-The benchmark produced the following results on the development machine:
+The benchmark produced the following results:
 
 |    N |  Loop p50 | NumPy p50 | Loop QPS | NumPy QPS | QPS Speedup |
 | ---: | --------: | --------: | -------: | --------: | ----------: |
@@ -509,7 +510,7 @@ The benchmark produced the following results on the development machine:
 |  10K |  24.55 ms |   1.88 ms |     37.9 |       528 |       13.9× |
 | 100K | 259.69 ms |  23.24 ms |     3.81 |      42.9 |       11.3× |
 
-The NumPy implementation is therefore roughly **11–17× faster** in this experiment while preserving exact results.
+The NumPy implementation is roughly **11–17× faster** in this experiment while preserving exact results.
 
 The speedup decreases somewhat as the dataset grows because the workload becomes increasingly dominated by memory movement and memory hierarchy effects rather than Python interpreter overhead.
 
@@ -538,22 +539,6 @@ More distance computations
     │
     ▼
 Higher query latency
-```
-
-For the NumPy implementation:
-
-```text
-N = 1K
-    ↓
-very low latency
-
-N = 10K
-    ↓
-higher latency
-
-N = 100K
-    ↓
-significantly higher latency
 ```
 
 The benchmark demonstrates that exact search scales approximately linearly with the number of vectors.
@@ -661,12 +646,12 @@ dtype = float32
 
 The experiment measures:
 
-* vector memory footprint
+* Vector memory footprint
 * p50 latency
 * p95 latency
 * p99 latency
 * QPS
-* build time
+* Build time
 
 ## Current Results
 
@@ -708,7 +693,7 @@ to:
 2.74 QPS
 ```
 
-The experiment therefore demonstrates the strong relationship between dataset size, memory footprint, and brute-force query latency.
+The experiment demonstrates the strong relationship between dataset size, memory footprint, and brute-force query latency.
 
 Results are stored in:
 
@@ -726,28 +711,9 @@ PYTHONPATH=src python benchmarks/run_cache.py
 
 ## Memory Footprint vs Query Latency
 
-The first cache experiment plots vector memory footprint against query latency.
-
-Both p50 and p95 latency are shown.
-
 ![Cache / Memory Experiment: Memory vs Query Latency](plots/cache_latency.png)
 
-As the working set becomes larger, the amount of data that must be processed for every exact query also increases.
-
-This provides an empirical basis for investigating:
-
-```text
-Dataset size
-      │
-      ▼
-Working-set size
-      │
-      ▼
-Memory hierarchy
-      │
-      ▼
-Query latency
-```
+Both p50 and p95 latency are shown.
 
 The important point is that this experiment does **not** by itself prove a specific CPU-cache boundary.
 
@@ -756,8 +722,6 @@ Rather, it establishes the performance behavior that we can investigate further 
 ---
 
 ## Memory Footprint vs Throughput
-
-The second experiment examines the same workload from a throughput perspective.
 
 ![Cache / Memory Experiment: Memory vs Throughput](plots/cache_qps.png)
 
@@ -814,15 +778,15 @@ Higher Query Latency
 Lower Throughput
 ```
 
-This experiment motivates the next level of systems investigation:
+This experiment motivates further investigation into:
 
 * CPU cache hierarchy
-* memory bandwidth
+* Memory bandwidth
 * SIMD utilization
-* contiguous memory access
-* allocation overhead
-* batching
-* vector dimensionality
+* Contiguous memory access
+* Allocation overhead
+* Batching
+* Vector dimensionality
 
 ---
 
@@ -889,11 +853,13 @@ The benchmark compares:
 
 ```text
 np.argsort
+
 vs
+
 np.argpartition + final sort
 ```
 
-### Observed Results
+## Observed Results
 
 |    N | argsort p50 | argpartition p50 | Speedup |
 | ---: | ----------: | ---------------: | ------: |
@@ -904,7 +870,7 @@ np.argpartition + final sort
 
 The improvement becomes more significant as `N` increases.
 
-This is exactly what we would expect from avoiding a complete sort of all `N` distances when only `k` results are required.
+This is what we would expect from avoiding a complete sort of all `N` distances when only `k` results are required.
 
 Results are stored in:
 
@@ -991,7 +957,7 @@ dtype = float32
 
 The experiment measures:
 
-* vector memory footprint
+* Vector memory footprint
 * p50 latency
 * p95 latency
 * p99 latency
@@ -1000,8 +966,6 @@ The experiment measures:
 ---
 
 ## Current Results
-
-The observed results were:
 
 | Dimension |    Memory | p50 Latency | p95 Latency |   QPS |
 | --------: | --------: | ----------: | ----------: | ----: |
@@ -1074,7 +1038,7 @@ As dimensionality increases, the number of vectors that can be processed per sec
 
 This provides another important systems lesson:
 
-> Vector search performance is determined not only by the number of vectors, but also by the amount of data contained in each vector.
+> **Vector search performance is determined not only by the number of vectors, but also by the amount of data contained in each vector.**
 
 Results are stored in:
 
@@ -1134,10 +1098,11 @@ batch size = 128
 
 and measure:
 
-* total batch latency
-* per-query latency
+* Total batch latency
+* Per-query latency
 * QPS
-* memory usage
+* Memory usage
+* Scaling with batch size
 
 Important questions include:
 
@@ -1154,13 +1119,13 @@ After dimensionality and batching, we will investigate how vector representation
 
 Topics include:
 
-* contiguous arrays
-* row-major layout
+* Contiguous arrays
+* Row-major layout
 * `float32` vs `float64`
-* alignment
-* memory bandwidth
+* Alignment
+* Memory bandwidth
 * SIMD/vectorization
-* allocation overhead
+* Allocation overhead
 
 For example:
 
@@ -1212,9 +1177,7 @@ we construct a navigable graph:
         Layer 2
 
           A
-
          / \
-
         B   C
 
 
@@ -1257,10 +1220,10 @@ efSearch
 
 affect:
 
-* recall
-* latency
-* memory
-* build time
+* Recall
+* Latency
+* Memory
+* Build time
 
 ---
 
@@ -1292,7 +1255,6 @@ A simple recall@k metric is:
 
 ```text
 recall@k =
-
 |approximate top-k ∩ exact top-k|
 ---------------------------------
                 k
@@ -1328,12 +1290,12 @@ build index
 
 This introduces:
 
-* serialization
-* binary formats
-* metadata
-* versioning
-* compatibility
-* memory mapping
+* Serialization
+* Binary formats
+* Metadata
+* Versioning
+* Compatibility
+* Memory mapping
 
 Memory mapping will be particularly interesting because it connects persistence directly with the memory/cache experiments.
 
@@ -1343,21 +1305,21 @@ Memory mapping will be particularly interesting because it connects persistence 
 
 Eventually we may explore:
 
-* batch insertion
-* batch search
-* deletion
-* updates
-* persistence
-* memory mapping
-* concurrent search
-* concurrent insertion
-* sharding
-* filtering
-* hybrid search
-* quantization
-* compressed vectors
-* observability
-* benchmark automation
+* Batch insertion
+* Batch search
+* Deletion
+* Updates
+* Persistence
+* Memory mapping
+* Concurrent search
+* Concurrent insertion
+* Sharding
+* Filtering
+* Hybrid search
+* Quantization
+* Compressed vectors
+* Observability
+* Benchmark automation
 
 These features will be introduced only after understanding the underlying algorithms and systems behavior.
 
@@ -1721,11 +1683,11 @@ throughput
 
 We will measure:
 
-* batch latency
-* per-query latency
+* Batch latency
+* Per-query latency
 * QPS
-* memory usage
-* scaling with batch size
+* Memory usage
+* Scaling with batch size
 
 After that, we will investigate memory layout, datatype effects, and deeper cache/memory profiling.
 
