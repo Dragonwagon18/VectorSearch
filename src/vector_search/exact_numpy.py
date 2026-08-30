@@ -4,30 +4,39 @@ from .exact_loop import SearchResult
 
 
 class ExactNumPyIndex:
-    def __init__(self, dimension: int):
-        if dimension <= 0:
-            raise ValueError("dimension must be positive")
+    """
+    Exact nearest-neighbor search using NumPy vectorization.
 
-        self.dimension = dimension
-        self._vectors: list[np.ndarray] = []
-        self._ids: list[int] = []
+    vectors: shape (n, d)
+    ids:     shape (n,)
+    """
 
-    def add(self, vector, item_id: int) -> None:
-        v = np.asarray(vector, dtype=np.float32)
+    def __init__(
+        self,
+        vectors: np.ndarray,
+        ids: np.ndarray | None = None,
+    ):
+        x = np.asarray(vectors, dtype=np.float32)
 
-        if v.shape != (self.dimension,):
-            raise ValueError(
-                f"expected shape {(self.dimension,)}, got {v.shape}"
-            )
+        if x.ndim != 2 or len(x) == 0:
+            raise ValueError("vectors must be a non-empty 2D matrix")
 
-        if not np.all(np.isfinite(v)):
-            raise ValueError("vector must contain only finite values")
+        if not np.all(np.isfinite(x)):
+            raise ValueError("vectors must contain only finite values")
 
-        if item_id in self._ids:
-            raise ValueError(f"duplicate item_id: {item_id}")
+        self.vectors = np.ascontiguousarray(x)
+        self.dimension = x.shape[1]
 
-        self._vectors.append(v.copy())
-        self._ids.append(item_id)
+        if ids is None:
+            self.ids = np.arange(len(x), dtype=np.int64)
+        else:
+            self.ids = np.asarray(ids, dtype=np.int64)
+
+            if self.ids.shape != (len(x),):
+                raise ValueError("ids must match vector count")
+
+            if len(np.unique(self.ids)) != len(x):
+                raise ValueError("ids must be unique")
 
     def search(self, query, k: int) -> SearchResult:
         q = np.asarray(query, dtype=np.float32)
@@ -36,19 +45,37 @@ class ExactNumPyIndex:
             raise ValueError(
                 f"expected shape {(self.dimension,)}, got {q.shape}"
             )
+
         if not np.all(np.isfinite(q)):
             raise ValueError("query must contain only finite values")
-        
-        if not 1 <= k <= len(self._vectors):
+
+        if not 1 <= k <= len(self.vectors):
             raise ValueError(
-                f"k must be between 1 and {len(self._vectors)}, got {k}"
+                f"k must be between 1 and {len(self.vectors)}, got {k}"
             )
-        vectors = np.stack(self._vectors)
 
-        distances = np.sum((vectors - q) ** 2, axis=1)
+        # Broadcasting:
+        # (n, d) - (d,) -> (n, d)
+        delta = self.vectors - q
 
-        order = np.lexsort((self._ids, distances))
+        # Squared L2 distance for every vector.
+        distances = np.einsum("ij,ij->i", delta, delta)
 
-        top = order[:k]
+        # Find the k smallest distances without sorting everything.
+        candidates = np.argpartition(distances, kth=k - 1)[:k]
 
-        return SearchResult( ids =np.asarray(self._ids)[top], distances=distances[top].astype(np.float32))
+        # Fully sort only the k selected candidates.
+        # IDs provide deterministic ordering when distances tie.
+        order = np.lexsort(
+            (
+                self.ids[candidates],
+                distances[candidates],
+            )
+        )
+
+        rows = candidates[order]
+
+        return SearchResult(
+            ids=self.ids[rows],
+            distances=distances[rows].astype(np.float32),
+        )
