@@ -28,7 +28,7 @@ Top-k nearest vectors
       │
       ▼
 RAG / Recommendation / Retrieval
-````
+```
 
 This project progressively builds that system from the simplest possible implementation toward a production-oriented approximate nearest-neighbor engine.
 
@@ -100,6 +100,10 @@ The project should make the answer to questions like these intuitive:
 * [x] Benchmark result serialization
 * [x] Exact-search latency plot
 * [x] Python loop vs NumPy benchmark plot
+* [x] Cache / memory benchmark
+* [x] Cache / memory benchmark result serialization
+* [x] Memory footprint vs latency visualization
+* [x] Memory footprint vs throughput visualization
 
 ## Current Test Status
 
@@ -127,28 +131,36 @@ vector-search/
 │   └── vector_search/
 │       ├── __init__.py
 │       ├── metrics.py
+│       ├── datasets.py
 │       ├── exact_loop.py
 │       ├── exact_numpy.py
-│       └── hnsw.py                  # planned
+│       └── hnsw.py                    # planned
 │
 ├── tests/
 │   ├── test_metrics.py
 │   ├── test_exact.py
 │   ├── test_exact_numpy.py
-│   └── test_hnsw.py                 # planned
+│   └── test_hnsw.py                   # planned
 │
 ├── benchmarks/
 │   ├── run_exact.py
 │   ├── compare_exact.py
-│   ├── run_hnsw.py                  # planned
-│   ├── compare_faiss.py             # planned
+│   ├── run_cache.py
+│   ├── plot_cache.py
+│   ├── run_topk.py                    # planned
+│   ├── run_hnsw.py                    # planned
+│   ├── compare_faiss.py               # planned
 │   │
 │   └── results/
-│       └── exact.json
+│       ├── exact.json
+│       ├── exact_comparison.json
+│       └── cache.json
 │
 └── plots/
     ├── exact_latency.png
-    └── Exact search latency- Python loop vs NumPy.png
+    ├── exact_loop_vs_numpy.png
+    ├── cache_latency.png
+    └── cache_qps.png
 ```
 
 ---
@@ -163,6 +175,7 @@ For two vectors:
 
 ```text
 q = query
+
 x = database vector
 ```
 
@@ -288,7 +301,9 @@ Vectors must have exactly the configured dimension.
 dimension = 3
 
 [1, 2, 3]       ✓
+
 [1, 2]          ✗
+
 [1, 2, 3, 4]    ✗
 ```
 
@@ -298,7 +313,9 @@ NaN and infinity are rejected.
 
 ```text
 [1, 2, 3]        ✓
+
 [1, NaN, 3]      ✗
+
 [1, Inf, 3]      ✗
 ```
 
@@ -368,9 +385,13 @@ Both implementations perform exact search:
 
 ```text
 ExactLoopIndex
+
       │
+
       │ same mathematical algorithm
+
       ▼
+
 ExactNumPyIndex
 ```
 
@@ -412,7 +433,7 @@ Additional tests verify:
 * ID handling
 * wrong ID count
 * duplicate IDs
-* NumPy and loop implementations produce identical nearest-neighbor results
+* NumPy and loop implementations produce identical results
 * multiple randomized trials produce identical nearest-neighbor results
 * deterministic tie-breaking when ties occur at the `k` boundary
 
@@ -426,9 +447,9 @@ Additional tests verify:
 
 # 5. Benchmarking
 
-We now have a reproducible benchmark for exact vector search.
+We now have reproducible benchmarks for exact vector search.
 
-The benchmark measures:
+The benchmarks measure:
 
 * query latency
 * p50 latency
@@ -437,22 +458,6 @@ The benchmark measures:
 * queries per second
 * build time
 * vector memory footprint
-
-Current experiment:
-
-```text
-dimension = 128
-k = 10
-queries = 200
-```
-
-Dataset sizes:
-
-```text
-N = 1,000
-N = 10,000
-N = 100,000
-```
 
 ---
 
@@ -466,7 +471,9 @@ The difference is primarily in how the computation is executed:
 
 ```text
 Python Loop
+
     │
+
     ├── Python-level iteration
     ├── Python-level arithmetic
     └── repeated function/object overhead
@@ -474,7 +481,9 @@ Python Loop
             VS
 
 NumPy
+
     │
+
     ├── vectorized operations
     ├── native compiled code
     └── optimized numerical kernels
@@ -494,7 +503,7 @@ The speedup decreases somewhat as the dataset grows because the workload becomes
 
 ### Benchmark Plot
 
-![Exact search latency: Python loop vs NumPy](plots/Exact%20search%20latency-%20Python%20loop%20vs%20NumPy.png)
+![Exact search latency: Python loop vs NumPy](plots/exact_loop_vs_numpy.png)
 
 ---
 
@@ -508,14 +517,23 @@ Conceptually:
 
 ```text
 N increases
+
     │
+
     ▼
+
 More vectors examined
+
     │
+
     ▼
+
 More distance computations
+
     │
+
     ▼
+
 Higher query latency
 ```
 
@@ -523,15 +541,21 @@ For the NumPy implementation:
 
 ```text
 N = 1K
+
     ↓
+
 very low latency
 
 N = 10K
+
     ↓
+
 higher latency
 
 N = 100K
+
     ↓
+
 significantly higher latency
 ```
 
@@ -551,9 +575,13 @@ The benchmark was run on:
 
 ```text
 Python:     3.13.5
+
 Platform:   macOS 15.2 arm64
+
 CPU cores:  8 logical cores
+
 RAM:        8 GB
+
 dtype:      float32
 ```
 
@@ -563,7 +591,7 @@ Results are stored in:
 benchmarks/results/exact.json
 ```
 
-Run the benchmark with:
+Run the exact-search comparison benchmark with:
 
 ```bash
 PYTHONPATH=src python benchmarks/compare_exact.py
@@ -589,13 +617,17 @@ For `D = 128`:
 
 ```text
 1K vectors
+
     = 1,000 × 128 × 4
+
     ≈ 0.5 MB
 
 10K vectors
+
     ≈ 5 MB
 
 100K vectors
+
     ≈ 51.2 MB
 ```
 
@@ -605,7 +637,207 @@ The dataset may fit inside some levels of the CPU cache at small sizes, while la
 
 ---
 
-# 6. Top-k Selection
+# 6. Cache and Memory Behavior
+
+Once the algorithm is vectorized, memory behavior becomes an important part of performance.
+
+The objective of this experiment is to understand how increasing the vector dataset changes the working set and query latency.
+
+We benchmarked dataset sizes from:
+
+```text
+N = 256
+N = 512
+N = 1K
+N = 2K
+N = 4K
+N = 8K
+N = 16K
+N = 32K
+N = 64K
+N = 128K
+N = 256K
+N = 512K
+N = 1M
+```
+
+with:
+
+```text
+D = 128
+k = 10
+queries = 200
+dtype = float32
+```
+
+The experiment measures:
+
+* vector memory footprint
+* p50 latency
+* p95 latency
+* p99 latency
+* QPS
+* build time
+
+## Current Results
+
+The working set grows from approximately:
+
+```text
+0.125 MB
+```
+
+at 256 vectors to:
+
+```text
+488.28 MB
+```
+
+at 1 million vectors.
+
+Observed p50 latency grows from:
+
+```text
+0.036 ms
+```
+
+to:
+
+```text
+285.774 ms
+```
+
+while QPS falls from approximately:
+
+```text
+25,879 QPS
+```
+
+to:
+
+```text
+2.74 QPS
+```
+
+The experiment therefore demonstrates the strong relationship between dataset size, memory footprint, and brute-force query latency.
+
+Results are stored in:
+
+```text
+benchmarks/results/cache.json
+```
+
+Run the experiment with:
+
+```bash
+PYTHONPATH=src python benchmarks/run_cache.py
+```
+
+---
+
+## Memory Footprint vs Query Latency
+
+The first cache experiment plots vector memory footprint against query latency.
+
+Both p50 and p95 latency are shown.
+
+![Cache / Memory Experiment: Memory vs Query Latency](plots/cache_latency.png)
+
+As the working set becomes larger, the amount of data that must be processed for every exact query also increases.
+
+This provides an empirical basis for investigating:
+
+```text
+Dataset size
+      │
+      ▼
+Working-set size
+      │
+      ▼
+Memory hierarchy
+      │
+      ▼
+Query latency
+```
+
+The important point is that this experiment does **not** by itself prove a specific CPU-cache boundary.
+
+Rather, it establishes the performance behavior that we can investigate further using profiling and hardware-performance measurements.
+
+---
+
+## Memory Footprint vs Throughput
+
+The second experiment examines the same workload from a throughput perspective.
+
+![Cache / Memory Experiment: Memory vs Throughput](plots/cache_qps.png)
+
+The trend is approximately:
+
+```text
+Memory footprint increases
+          │
+          ▼
+More vectors scanned per query
+          │
+          ▼
+Higher query cost
+          │
+          ▼
+Lower QPS
+```
+
+At small working-set sizes, the implementation can process queries at high throughput.
+
+As the dataset grows, each query requires processing substantially more vector data, causing throughput to fall.
+
+---
+
+# Cache / Memory Experiment
+
+The complete experiment can be summarized as:
+
+```text
+Small Dataset
+     │
+     ▼
+Small Working Set
+     │
+     ▼
+Low Query Latency
+     │
+     ▼
+High Throughput
+
+
+Large Dataset
+     │
+     ▼
+Large Working Set
+     │
+     ▼
+More Data Processed
+     │
+     ▼
+Higher Query Latency
+     │
+     ▼
+Lower Throughput
+```
+
+This experiment motivates the next level of systems investigation:
+
+* CPU cache hierarchy
+* memory bandwidth
+* SIMD utilization
+* contiguous memory access
+* allocation overhead
+* batching
+* vector dimensionality
+
+---
+
+# 7. Top-k Selection
 
 The current exact implementation does more work than necessary when `k` is small.
 
@@ -613,6 +845,7 @@ If:
 
 ```text
 N = 1,000,000
+
 k = 10
 ```
 
@@ -656,62 +889,6 @@ while verifying that both produce identical results.
 
 ---
 
-# 7. Memory and Cache Behavior
-
-Once the algorithm is vectorized, memory behavior becomes an important bottleneck.
-
-We will investigate:
-
-* contiguous arrays
-* row-major layout
-* dtype
-* float32 vs float64
-* memory bandwidth
-* CPU cache behavior
-* SIMD/vectorization
-* allocation overhead
-* batching
-
-The goal is to understand why two mathematically identical implementations can have very different latency.
-
-An important experiment will be determining what happens as the dataset grows through different levels of the CPU memory hierarchy.
-
-Conceptually:
-
-```text
-Small Dataset
-     │
-     ▼
-CPU Cache
-     │
-     ▼
-Low memory-access latency
-
-        ↓
-
-Larger Dataset
-     │
-     ▼
-Higher cache levels
-     │
-     ▼
-Higher latency
-
-        ↓
-
-Very Large Dataset
-     │
-     ▼
-Main Memory
-     │
-     ▼
-Memory bandwidth becomes important
-```
-
-We will measure this rather than assume it.
-
----
-
 # 8. Dimensionality and Batch Experiments
 
 We will benchmark the effect of vector dimensionality.
@@ -720,9 +897,13 @@ Potential dimensions:
 
 ```text
 D = 64
+
 D = 128
+
 D = 384
+
 D = 768
+
 D = 1536
 ```
 
@@ -742,6 +923,7 @@ Expected questions include:
 * When do allocations become significant?
 * How does float32 compare with float64?
 * Does increasing dimensionality change the relative benefit of vectorization?
+* How does the working-set size change with dimensionality?
 
 ---
 
@@ -763,7 +945,9 @@ Instead of comparing the query against every vector:
 
 ```text
 Query
+
   │
+
   ├── vector 1
   ├── vector 2
   ├── vector 3
@@ -777,14 +961,20 @@ we construct a navigable graph:
         Layer 2
 
           A
+
          / \
+
         B   C
+
 
         Layer 1
 
      A──B──C──D──E
       \    \  /
+
+
        F────G
+
 
         Layer 0
 
@@ -810,7 +1000,9 @@ We will study how:
 
 ```text
 M
+
 efConstruction
+
 efSearch
 ```
 
@@ -831,8 +1023,11 @@ For each query:
 
 ```text
 Exact Search
+
      │
+
      ▼
+
 Ground-truth top-k
 ```
 
@@ -840,8 +1035,11 @@ and:
 
 ```text
 HNSW
+
  │
+
  ▼
+
 Approximate top-k
 ```
 
@@ -871,17 +1069,29 @@ We will investigate:
 
 ```text
 build index
+
      │
+
      ▼
+
    save
+
      │
+
      ▼
+
    disk
+
      │
+
      ▼
+
    load
+
      │
+
      ▼
+
   search
 ```
 
@@ -928,6 +1138,7 @@ Once our implementations are mature enough, we will compare against established 
 
 ```text
 FAISS
+
 HNSWlib
 ```
 
@@ -937,11 +1148,17 @@ The purpose is to understand:
 
 ```text
 Our implementation
+
        │
+
        ▼
+
 What optimization are we missing?
+
        │
+
        ▼
+
 What does a mature implementation do differently?
 ```
 
@@ -955,23 +1172,41 @@ Every optimization should follow:
 
 ```text
 Implement
+
    │
+
    ▼
+
 Test correctness
+
    │
+
    ▼
+
 Benchmark
+
    │
+
    ▼
+
 Profile
+
    │
+
    ▼
+
 Understand bottleneck
+
    │
+
    ▼
+
 Optimize
+
    │
+
    ▼
+
 Benchmark again
 ```
 
@@ -994,15 +1229,25 @@ The project follows a simple progression:
 
 ```text
 Correctness
+
      ↓
+
 Clarity
+
      ↓
+
 Measurement
+
      ↓
+
 Optimization
+
      ↓
+
 Approximation
+
      ↓
+
 Systems engineering
 ```
 
@@ -1024,11 +1269,17 @@ Implemented:
 
 ```text
 ✓ Metrics
+
 ✓ Normalization
+
 ✓ ExactLoopIndex
+
 ✓ Validation
+
 ✓ Deterministic ordering
+
 ✓ Unit tests
+
 ✓ Packaging
 ```
 
@@ -1044,15 +1295,25 @@ Implemented:
 
 ```text
 ✓ ExactNumPyIndex
+
 ✓ Vectorized distance computation
+
 ✓ Input validation
+
 ✓ Deterministic ordering
+
 ✓ NumPy vs loop correctness tests
+
 ✓ Randomized equivalence tests
+
 ✓ Reproducible benchmark
+
 ✓ Latency measurements
+
 ✓ Benchmark JSON output
+
 ✓ Exact-search latency visualization
+
 ✓ Python loop vs NumPy visualization
 ```
 
@@ -1066,9 +1327,74 @@ The key result from this milestone is that we now have a **measured exact-search
 
 ---
 
+## Milestone 3 — Cache / Memory Experiment
+
+```text
+COMPLETE
+```
+
+Implemented:
+
+```text
+✓ Working-set size benchmark
+
+✓ Dataset sizes from 256 → 1M vectors
+
+✓ Memory footprint measurement
+
+✓ p50 latency measurement
+
+✓ p95 latency measurement
+
+✓ p99 latency measurement
+
+✓ QPS measurement
+
+✓ Build-time measurement
+
+✓ Benchmark JSON output
+
+✓ Memory vs latency visualization
+
+✓ Memory vs QPS visualization
+```
+
+The experiment demonstrated the expected system-level trend:
+
+```text
+Larger Dataset
+      │
+      ▼
+Larger Working Set
+      │
+      ▼
+More Vector Data Processed
+      │
+      ▼
+Higher Query Latency
+      │
+      ▼
+Lower Throughput
+```
+
+Results:
+
+```text
+benchmarks/results/cache.json
+```
+
+Plots:
+
+```text
+plots/cache_latency.png
+plots/cache_qps.png
+```
+
+---
+
 # Next Milestone
 
-## Milestone 3 — Top-k Optimization + Systems Benchmarking
+## Milestone 4 — Top-k Optimization
 
 We will now investigate how much performance can be gained without changing the search algorithm itself.
 
@@ -1076,61 +1402,83 @@ First:
 
 ```text
 Full sorting
+
      │
+
      ▼
+
 np.argpartition
 ```
+
+Then compare:
+
+```text
+np.argsort
+
+vs
+
+np.argpartition + final sort
+```
+
+The key question is:
+
+> Can we preserve exact nearest-neighbor results while avoiding unnecessary sorting work?
+
+We will measure:
+
+* p50 latency
+* p95 latency
+* p99 latency
+* QPS
+* selection time
+* end-to-end search time
 
 Then we will investigate:
 
 ```text
-Dimension
-   │
-   ├── 64
-   ├── 128
-   ├── 384
-   ├── 768
-   └── 1536
-
-Dataset size
-   │
-   ├── 1K
-   ├── 10K
-   ├── 100K
-   └── 1M
-
-Batch size
-   │
-   ▼
-Throughput
+k = 1
+k = 10
+k = 100
+k = 1000
 ```
 
-Then:
+to understand when partial selection provides the greatest benefit.
+
+---
+
+# Future Systems Experiments
+
+After top-k optimization, the planned progression is:
 
 ```text
-Memory
-   │
-   ▼
-Cache behavior
-   │
-   ▼
-Memory bandwidth
-```
-
-The memory/cache experiment will investigate how the working set interacts with the CPU memory hierarchy.
-
-We will measure:
-
-```text
-dataset size
-      ↓
-working-set size
-      ↓
-cache behavior
-      ↓
-latency
-      ↓
-throughput
+Top-k Optimization
+        │
+        ▼
+Dimensionality
+        │
+        ▼
+Batch Search
+        │
+        ▼
+Memory Layout
+        │
+        ▼
+Cache / Memory Profiling
+        │
+        ▼
+SIMD / Vectorization
+        │
+        ▼
+HNSW
+        │
+        ▼
+Recall / Latency Trade-offs
+        │
+        ▼
+Persistence
+        │
+        ▼
+Production-oriented Features
 ```
 
 Only after understanding these exact-search bottlenecks will we move to HNSW.
@@ -1142,6 +1490,3 @@ The goal is to progressively move from:
 to:
 
 > **"I understand why a production vector search engine is designed this way."**
-
-```
-```
