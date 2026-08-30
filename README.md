@@ -1,3 +1,4 @@
+````markdown
 # VectorSearch
 
 A vector search engine built from scratch to understand the **algorithms, mathematics, data structures, memory behavior, and systems trade-offs** behind modern vector databases and approximate nearest-neighbor (ANN) search engines.
@@ -28,7 +29,7 @@ Top-k nearest vectors
       │
       ▼
 RAG / Recommendation / Retrieval
-```
+````
 
 This project progressively builds that system from the simplest possible implementation toward a production-oriented approximate nearest-neighbor engine.
 
@@ -42,6 +43,9 @@ Vectorized Exact Search
      │
      ▼
 Top-k Optimization
+     │
+     ▼
+Dimensionality / Batch Experiments
      │
      ▼
 Memory / Cache Optimization
@@ -104,6 +108,16 @@ The project should make the answer to questions like these intuitive:
 * [x] Cache / memory benchmark result serialization
 * [x] Memory footprint vs latency visualization
 * [x] Memory footprint vs throughput visualization
+* [x] Top-k `argsort` vs `argpartition` benchmark
+* [x] Top-k benchmark result serialization
+* [x] Top-k latency visualization
+* [x] Top-k QPS visualization
+* [x] Top-k speedup visualization
+* [x] Dimensionality benchmark
+* [x] Dimensionality benchmark result serialization
+* [x] Dimensionality vs latency visualization
+* [x] Dimensionality vs memory visualization
+* [x] Dimensionality vs QPS visualization
 
 ## Current Test Status
 
@@ -147,20 +161,31 @@ vector-search/
 │   ├── compare_exact.py
 │   ├── run_cache.py
 │   ├── plot_cache.py
-│   ├── run_topk.py                    # planned
+│   ├── run_topk.py
+│   ├── plot_topk.py
+│   ├── run_dimension.py
+│   ├── plot_dimension.py
 │   ├── run_hnsw.py                    # planned
 │   ├── compare_faiss.py               # planned
 │   │
 │   └── results/
 │       ├── exact.json
 │       ├── exact_comparison.json
-│       └── cache.json
+│       ├── cache.json
+│       ├── topk.json
+│       └── dimension.json
 │
 └── plots/
     ├── exact_latency.png
     ├── exact_loop_vs_numpy.png
     ├── cache_latency.png
-    └── cache_qps.png
+    ├── cache_qps.png
+    ├── topk_latency.png
+    ├── topk_qps.png
+    ├── topk_speedup.png
+    ├── dimension_latency.png
+    ├── dimension_memory.png
+    └── dimension_qps.png
 ```
 
 ---
@@ -175,7 +200,6 @@ For two vectors:
 
 ```text
 q = query
-
 x = database vector
 ```
 
@@ -301,9 +325,7 @@ Vectors must have exactly the configured dimension.
 dimension = 3
 
 [1, 2, 3]       ✓
-
 [1, 2]          ✗
-
 [1, 2, 3, 4]    ✗
 ```
 
@@ -313,9 +335,7 @@ NaN and infinity are rejected.
 
 ```text
 [1, 2, 3]        ✓
-
 [1, NaN, 3]      ✗
-
 [1, Inf, 3]      ✗
 ```
 
@@ -385,13 +405,9 @@ Both implementations perform exact search:
 
 ```text
 ExactLoopIndex
-
       │
-
       │ same mathematical algorithm
-
       ▼
-
 ExactNumPyIndex
 ```
 
@@ -473,7 +489,6 @@ The difference is primarily in how the computation is executed:
 Python Loop
 
     │
-
     ├── Python-level iteration
     ├── Python-level arithmetic
     └── repeated function/object overhead
@@ -483,7 +498,6 @@ Python Loop
 NumPy
 
     │
-
     ├── vectorized operations
     ├── native compiled code
     └── optimized numerical kernels
@@ -517,23 +531,14 @@ Conceptually:
 
 ```text
 N increases
-
     │
-
     ▼
-
 More vectors examined
-
     │
-
     ▼
-
 More distance computations
-
     │
-
     ▼
-
 Higher query latency
 ```
 
@@ -541,21 +546,15 @@ For the NumPy implementation:
 
 ```text
 N = 1K
-
     ↓
-
 very low latency
 
 N = 10K
-
     ↓
-
 higher latency
 
 N = 100K
-
     ↓
-
 significantly higher latency
 ```
 
@@ -575,13 +574,9 @@ The benchmark was run on:
 
 ```text
 Python:     3.13.5
-
 Platform:   macOS 15.2 arm64
-
 CPU cores:  8 logical cores
-
 RAM:        8 GB
-
 dtype:      float32
 ```
 
@@ -617,17 +612,13 @@ For `D = 128`:
 
 ```text
 1K vectors
-
     = 1,000 × 128 × 4
-
     ≈ 0.5 MB
 
 10K vectors
-
     ≈ 5 MB
 
 100K vectors
-
     ≈ 51.2 MB
 ```
 
@@ -845,7 +836,6 @@ If:
 
 ```text
 N = 1,000,000
-
 k = 10
 ```
 
@@ -853,20 +843,23 @@ we only need the 10 closest vectors.
 
 Fully sorting one million distances is unnecessary.
 
-We will investigate:
+We therefore compare:
 
 ```text
 Full sorting
+     │
+     ▼
+np.argsort
 
-     vs
+        vs
 
 Partial selection
-```
-
-For example:
-
-```python
-np.argpartition(...)
+     │
+     ▼
+np.argpartition
+     │
+     ▼
+Sort only the selected candidates
 ```
 
 This introduces an important systems principle:
@@ -875,59 +868,321 @@ This introduces an important systems principle:
 
 The goal is to preserve exact results while reducing the cost of selecting the nearest `k` vectors.
 
-The experiment will compare:
+---
+
+## Benchmark Configuration
+
+The top-k experiment uses:
+
+```text
+D = 128
+k = 10
+queries = 200
+
+N = 1K
+N = 10K
+N = 100K
+N = 1M
+```
+
+Both methods are checked for exact equivalence before accepting the performance results.
+
+The benchmark compares:
 
 ```text
 np.argsort
-
 vs
-
 np.argpartition + final sort
 ```
 
-while verifying that both produce identical results.
+### Observed Results
+
+|    N | argsort p50 | argpartition p50 | Speedup |
+| ---: | ----------: | ---------------: | ------: |
+|   1K |    0.128 ms |         0.078 ms |   1.64× |
+|  10K |    2.052 ms |         1.225 ms |   1.67× |
+| 100K |   23.336 ms |        11.565 ms |   2.02× |
+|   1M |  279.787 ms |       135.542 ms |   2.06× |
+
+The improvement becomes more significant as `N` increases.
+
+This is exactly what we would expect from avoiding a complete sort of all `N` distances when only `k` results are required.
+
+Results are stored in:
+
+```text
+benchmarks/results/topk.json
+```
+
+Run the benchmark with:
+
+```bash
+PYTHONPATH=src python benchmarks/run_topk.py
+```
 
 ---
 
-# 8. Dimensionality and Batch Experiments
+## Top-k Latency
 
-We will benchmark the effect of vector dimensionality.
+![Top-k Selection: Latency](plots/topk_latency.png)
 
-Potential dimensions:
+The latency comparison demonstrates that partial selection becomes increasingly valuable as the number of candidates grows.
+
+---
+
+## Top-k QPS
+
+![Top-k Selection: QPS](plots/topk_qps.png)
+
+Avoiding unnecessary sorting increases throughput, especially for larger datasets.
+
+---
+
+## Top-k Speedup
+
+![Top-k Selection: Speedup](plots/topk_speedup.png)
+
+The measured speedup grows from approximately:
+
+```text
+1.64× at N=1K
+```
+
+to:
+
+```text
+2.06× at N=1M
+```
+
+The important lesson is that algorithmic work inside an exact search query matters even when the distance computation itself remains unchanged.
+
+---
+
+# 8. Dimensionality Experiments
+
+After understanding dataset-size scaling and top-k selection, the next experiment investigates the effect of vector dimensionality.
+
+The distance calculation itself is:
+
+```text
+d(q, x) = Σ(qᵢ - xᵢ)²
+```
+
+Therefore, increasing `D` increases the amount of numerical work required for every vector comparison.
+
+It also increases the amount of memory transferred.
+
+We benchmarked:
 
 ```text
 D = 64
-
 D = 128
-
 D = 384
-
 D = 768
-
 D = 1536
 ```
 
-We will also investigate:
+using:
 
 ```text
-batch size → throughput
+N = 100,000
+k = 10
+queries = 200
+dtype = float32
 ```
 
-The objective is to measure rather than assume how dimensionality and batching affect performance.
+The experiment measures:
 
-Expected questions include:
-
-* Is latency proportional to `D`?
-* When does memory bandwidth dominate?
-* Does batching improve hardware utilization?
-* When do allocations become significant?
-* How does float32 compare with float64?
-* Does increasing dimensionality change the relative benefit of vectorization?
-* How does the working-set size change with dimensionality?
+* vector memory footprint
+* p50 latency
+* p95 latency
+* p99 latency
+* QPS
 
 ---
 
-# 9. HNSW
+## Current Results
+
+The observed results were:
+
+| Dimension |    Memory | p50 Latency | p95 Latency |   QPS |
+| --------: | --------: | ----------: | ----------: | ----: |
+|        64 |  24.41 MB |   18.269 ms |   18.741 ms | 54.54 |
+|       128 |  48.83 MB |   23.349 ms |   26.343 ms | 40.84 |
+|       384 | 146.48 MB |   49.436 ms |   51.623 ms | 19.99 |
+|       768 | 292.97 MB |   91.329 ms |   99.598 ms | 10.84 |
+|      1536 | 585.94 MB |  182.590 ms |  279.599 ms |  4.98 |
+
+The experiment shows a clear relationship:
+
+```text
+Higher dimensionality
+        │
+        ▼
+More values per vector
+        │
+        ▼
+More computation
+        │
+        ▼
+More memory traffic
+        │
+        ▼
+Higher latency
+        │
+        ▼
+Lower QPS
+```
+
+The relationship is not perfectly linear because actual performance also depends on memory hierarchy, vectorization, allocation behavior, and other system effects.
+
+---
+
+## Dimensionality vs Latency
+
+![Dimensionality vs Latency](plots/dimension_latency.png)
+
+Latency increases substantially as dimensionality grows.
+
+At `D=1536`, p50 latency is approximately ten times the `D=64` latency in this experiment.
+
+---
+
+## Dimensionality vs Memory
+
+![Dimensionality vs Memory](plots/dimension_memory.png)
+
+For a fixed number of vectors, memory usage grows linearly with dimensionality:
+
+```text
+memory = N × D × sizeof(dtype)
+```
+
+For `float32`:
+
+```text
+sizeof(float32) = 4 bytes
+```
+
+Therefore doubling dimensionality approximately doubles the vector storage requirement.
+
+---
+
+## Dimensionality vs QPS
+
+![Dimensionality vs QPS](plots/dimension_qps.png)
+
+As dimensionality increases, the number of vectors that can be processed per second decreases.
+
+This provides another important systems lesson:
+
+> Vector search performance is determined not only by the number of vectors, but also by the amount of data contained in each vector.
+
+Results are stored in:
+
+```text
+benchmarks/results/dimension.json
+```
+
+Run the experiment with:
+
+```bash
+PYTHONPATH=src python benchmarks/run_dimension.py
+```
+
+---
+
+# 9. Batch Search
+
+The next systems experiment will investigate batch queries.
+
+Instead of:
+
+```text
+query
+  │
+  ▼
+search
+  │
+  ▼
+result
+```
+
+we can process:
+
+```text
+query 1 ─┐
+query 2 ─┤
+query 3 ─┤
+   ...   ┤
+query N ─┘
+         │
+         ▼
+    batch search
+```
+
+The objective is to understand whether processing multiple queries together improves hardware utilization.
+
+We will investigate:
+
+```text
+batch size = 1
+batch size = 8
+batch size = 16
+batch size = 32
+batch size = 64
+batch size = 128
+```
+
+and measure:
+
+* total batch latency
+* per-query latency
+* QPS
+* memory usage
+
+Important questions include:
+
+* Does batching improve throughput?
+* Does batching increase individual query latency?
+* When does batching become memory-bound?
+* Does NumPy achieve better hardware utilization with larger batches?
+
+---
+
+# 10. Memory Layout and Data Representation
+
+After dimensionality and batching, we will investigate how vector representation affects performance.
+
+Topics include:
+
+* contiguous arrays
+* row-major layout
+* `float32` vs `float64`
+* alignment
+* memory bandwidth
+* SIMD/vectorization
+* allocation overhead
+
+For example:
+
+```text
+float32
+    ↓
+4 bytes / dimension
+
+float64
+    ↓
+8 bytes / dimension
+```
+
+Using a wider datatype increases memory traffic and storage requirements.
+
+The goal is to measure the actual performance consequences rather than assuming that a particular representation is always better.
+
+---
+
+# 11. HNSW
 
 After understanding exact search, we will implement:
 
@@ -945,9 +1200,7 @@ Instead of comparing the query against every vector:
 
 ```text
 Query
-
   │
-
   ├── vector 1
   ├── vector 2
   ├── vector 3
@@ -1000,9 +1253,7 @@ We will study how:
 
 ```text
 M
-
 efConstruction
-
 efSearch
 ```
 
@@ -1015,7 +1266,7 @@ affect:
 
 ---
 
-# 10. Recall Evaluation
+# 12. Recall Evaluation
 
 Exact search becomes our ground truth.
 
@@ -1023,11 +1274,8 @@ For each query:
 
 ```text
 Exact Search
-
      │
-
      ▼
-
 Ground-truth top-k
 ```
 
@@ -1035,11 +1283,8 @@ and:
 
 ```text
 HNSW
-
  │
-
  ▼
-
 Approximate top-k
 ```
 
@@ -1061,7 +1306,7 @@ The exact implementation is therefore not merely the first implementation — it
 
 ---
 
-# 11. Persistence
+# 13. Persistence
 
 Eventually the index should survive process restarts.
 
@@ -1069,29 +1314,17 @@ We will investigate:
 
 ```text
 build index
-
      │
-
      ▼
-
    save
-
      │
-
      ▼
-
    disk
-
      │
-
      ▼
-
    load
-
      │
-
      ▼
-
   search
 ```
 
@@ -1108,7 +1341,7 @@ Memory mapping will be particularly interesting because it connects persistence 
 
 ---
 
-# 12. Production-Oriented Features
+# 14. Production-Oriented Features
 
 Eventually we may explore:
 
@@ -1138,7 +1371,6 @@ Once our implementations are mature enough, we will compare against established 
 
 ```text
 FAISS
-
 HNSWlib
 ```
 
@@ -1148,17 +1380,11 @@ The purpose is to understand:
 
 ```text
 Our implementation
-
        │
-
        ▼
-
 What optimization are we missing?
-
        │
-
        ▼
-
 What does a mature implementation do differently?
 ```
 
@@ -1172,41 +1398,23 @@ Every optimization should follow:
 
 ```text
 Implement
-
    │
-
    ▼
-
 Test correctness
-
    │
-
    ▼
-
 Benchmark
-
    │
-
    ▼
-
 Profile
-
    │
-
    ▼
-
 Understand bottleneck
-
    │
-
    ▼
-
 Optimize
-
    │
-
    ▼
-
 Benchmark again
 ```
 
@@ -1229,25 +1437,15 @@ The project follows a simple progression:
 
 ```text
 Correctness
-
      ↓
-
 Clarity
-
      ↓
-
 Measurement
-
      ↓
-
 Optimization
-
      ↓
-
 Approximation
-
      ↓
-
 Systems engineering
 ```
 
@@ -1269,17 +1467,11 @@ Implemented:
 
 ```text
 ✓ Metrics
-
 ✓ Normalization
-
 ✓ ExactLoopIndex
-
 ✓ Validation
-
 ✓ Deterministic ordering
-
 ✓ Unit tests
-
 ✓ Packaging
 ```
 
@@ -1295,25 +1487,15 @@ Implemented:
 
 ```text
 ✓ ExactNumPyIndex
-
 ✓ Vectorized distance computation
-
 ✓ Input validation
-
 ✓ Deterministic ordering
-
 ✓ NumPy vs loop correctness tests
-
 ✓ Randomized equivalence tests
-
 ✓ Reproducible benchmark
-
 ✓ Latency measurements
-
 ✓ Benchmark JSON output
-
 ✓ Exact-search latency visualization
-
 ✓ Python loop vs NumPy visualization
 ```
 
@@ -1337,25 +1519,15 @@ Implemented:
 
 ```text
 ✓ Working-set size benchmark
-
 ✓ Dataset sizes from 256 → 1M vectors
-
 ✓ Memory footprint measurement
-
 ✓ p50 latency measurement
-
 ✓ p95 latency measurement
-
 ✓ p99 latency measurement
-
 ✓ QPS measurement
-
 ✓ Build-time measurement
-
 ✓ Benchmark JSON output
-
 ✓ Memory vs latency visualization
-
 ✓ Memory vs QPS visualization
 ```
 
@@ -1392,92 +1564,204 @@ plots/cache_qps.png
 
 ---
 
-# Next Milestone
-
 ## Milestone 4 — Top-k Optimization
 
-We will now investigate how much performance can be gained without changing the search algorithm itself.
-
-First:
-
 ```text
-Full sorting
-
-     │
-
-     ▼
-
-np.argpartition
+COMPLETE
 ```
 
-Then compare:
+Implemented:
 
 ```text
-np.argsort
+✓ argsort baseline
+✓ argpartition-based selection
+✓ Final sorting of selected candidates
+✓ Correctness equivalence checks
+✓ p50 latency measurement
+✓ p95 latency measurement
+✓ p99 latency measurement
+✓ QPS measurement
+✓ Speedup calculation
+✓ Benchmark JSON output
+✓ Top-k latency visualization
+✓ Top-k QPS visualization
+✓ Top-k speedup visualization
+```
+
+The benchmark demonstrated:
+
+```text
+N = 1K
+    ↓
+1.64× speedup
+
+N = 10K
+    ↓
+1.67× speedup
+
+N = 100K
+    ↓
+2.02× speedup
+
+N = 1M
+    ↓
+2.06× speedup
+```
+
+The key lesson is:
+
+> **Exact search can be optimized without changing the underlying nearest-neighbor algorithm.**
+
+We can reduce unnecessary ranking work while preserving exact results.
+
+Results:
+
+```text
+benchmarks/results/topk.json
+```
+
+Plots:
+
+```text
+plots/topk_latency.png
+plots/topk_qps.png
+plots/topk_speedup.png
+```
+
+---
+
+## Milestone 5 — Dimensionality Experiment
+
+```text
+COMPLETE
+```
+
+Implemented:
+
+```text
+✓ Dimensionality benchmark
+✓ D = 64
+✓ D = 128
+✓ D = 384
+✓ D = 768
+✓ D = 1536
+✓ Memory footprint measurement
+✓ p50 latency measurement
+✓ p95 latency measurement
+✓ p99 latency measurement
+✓ QPS measurement
+✓ Benchmark JSON output
+✓ Dimensionality vs latency visualization
+✓ Dimensionality vs memory visualization
+✓ Dimensionality vs QPS visualization
+```
+
+The experiment demonstrated:
+
+```text
+Higher Dimension
+       │
+       ▼
+More computation per vector
+       │
+       ▼
+More memory traffic
+       │
+       ▼
+Higher latency
+       │
+       ▼
+Lower throughput
+```
+
+Results:
+
+```text
+benchmarks/results/dimension.json
+```
+
+Plots:
+
+```text
+plots/dimension_latency.png
+plots/dimension_memory.png
+plots/dimension_qps.png
+```
+
+---
+
+# Next Milestone
+
+## Milestone 6 — Batch Search + Systems Optimization
+
+The next stage is to investigate how multiple queries can be processed together.
+
+We will compare:
+
+```text
+Single-query search
 
 vs
 
-np.argpartition + final sort
+Batch search
 ```
 
-The key question is:
+and investigate:
 
-> Can we preserve exact nearest-neighbor results while avoiding unnecessary sorting work?
+```text
+batch size
+     │
+     ▼
+hardware utilization
+     │
+     ▼
+memory traffic
+     │
+     ▼
+throughput
+```
 
 We will measure:
 
-* p50 latency
-* p95 latency
-* p99 latency
+* batch latency
+* per-query latency
 * QPS
-* selection time
-* end-to-end search time
+* memory usage
+* scaling with batch size
 
-Then we will investigate:
-
-```text
-k = 1
-k = 10
-k = 100
-k = 1000
-```
-
-to understand when partial selection provides the greatest benefit.
+After that, we will investigate memory layout, datatype effects, and deeper cache/memory profiling.
 
 ---
 
 # Future Systems Experiments
 
-After top-k optimization, the planned progression is:
+After batch search, the planned progression is:
 
 ```text
-Top-k Optimization
-        │
-        ▼
-Dimensionality
-        │
-        ▼
 Batch Search
-        │
-        ▼
+      │
+      ▼
 Memory Layout
-        │
-        ▼
-Cache / Memory Profiling
-        │
-        ▼
+      │
+      ▼
+float32 vs float64
+      │
+      ▼
 SIMD / Vectorization
-        │
-        ▼
+      │
+      ▼
+Cache / Memory Profiling
+      │
+      ▼
 HNSW
-        │
-        ▼
+      │
+      ▼
 Recall / Latency Trade-offs
-        │
-        ▼
+      │
+      ▼
 Persistence
-        │
-        ▼
+      │
+      ▼
 Production-oriented Features
 ```
 
@@ -1490,3 +1774,6 @@ The goal is to progressively move from:
 to:
 
 > **"I understand why a production vector search engine is designed this way."**
+
+```
+```
